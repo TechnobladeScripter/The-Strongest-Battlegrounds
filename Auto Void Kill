@@ -1,0 +1,82 @@
+-- auto void kill thanks to kjefeer for the source
+local player = game.Players.LocalPlayer
+
+local isAutoVoidKillEnabled = true
+local lastPosition = nil
+local isTeleporting = false
+
+local animationDelays = {
+    ["rbxassetid://12273188754"] = 1,
+    ["rbxassetid://12296113986"] = 1.2,
+    ["rbxassetid://15145462680"] = 1.8,
+    ["rbxassetid://15295895753"] = 0.5,
+    ["rbxassetid://14705929107"] = 1.6,
+    ["rbxassetid://16139108718"] = 0.2,
+    ["rbxassetid://17799224866"] = 2,
+    ["rbxassetid://18182425133"] = 2.8
+}
+
+local function teleportBack(humanoid, humanoidRootPart)
+    if lastPosition and isAutoVoidKillEnabled then
+        humanoidRootPart.CFrame = CFrame.new(lastPosition)
+        humanoidRootPart.Anchored = false
+        isTeleporting = false
+        humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+    end
+end
+
+local function teleportAfterDelay(humanoid, humanoidRootPart, delay)
+    if not isTeleporting then
+        isTeleporting = true
+        lastPosition = humanoidRootPart.Position
+
+        wait(delay)
+
+        if isAutoVoidKillEnabled then -- Проверяем, включён ли режим авто телепортации
+            humanoidRootPart.CFrame = CFrame.new(0, -498.2, 0) * CFrame.Angles(math.rad(-90), 0, 0)
+            humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+            wait(0.08)
+            humanoidRootPart.Anchored = true
+        else
+            isTeleporting = false
+        end
+    end
+end
+
+local function onAnimationPlayed(animationTrack, humanoid, humanoidRootPart)
+    if isAutoVoidKillEnabled then
+        local delay = animationDelays[animationTrack.Animation.AnimationId]
+        if delay then
+            teleportAfterDelay(humanoid, humanoidRootPart, delay)
+
+            animationTrack.Stopped:Connect(function()
+                if isAutoVoidKillEnabled then -- Проверяем снова перед возвратом
+                    teleportBack(humanoid, humanoidRootPart)
+                end
+            end)
+        end
+    end
+end
+
+local function setupCharacter(character)
+    local humanoid = character:WaitForChild("Humanoid")
+    local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+
+    humanoid.AnimationPlayed:Connect(function(animationTrack)
+        onAnimationPlayed(animationTrack, humanoid, humanoidRootPart)
+    end)
+
+    humanoid.Died:Connect(function()
+        isTeleporting = false
+    end)
+end
+
+player.CharacterAdded:Connect(setupCharacter)
+
+if player.Character then
+    setupCharacter(player.Character)
+end
+
+local Toggle1 = Tab1:NewToggle("toggle auto void kill", false, function(value)
+    isAutoVoidKillEnabled = value
+end)
